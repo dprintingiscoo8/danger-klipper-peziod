@@ -147,6 +147,9 @@ class TMC2660CurrentHelper:
                 "idle_timeout:ready", self._handle_ready
             )
 
+    def needs_home_current_change(self):
+        return self._home_current != self.current
+
     def set_home_current(self, new_home_current):
         self._home_current = min(MAX_CURRENT, new_home_current)
 
