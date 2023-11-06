@@ -227,6 +227,9 @@ class TMCCurrentHelper:
         self.fields.set_field("ihold", ihold)
         self.fields.set_field("irun", irun)
 
+    def needs_home_current_change(self):
+        return self._home_current != self.run_current
+
     def set_home_current(self, new_home_current):
         self._home_current = min(MAX_CURRENT, new_home_current)
 

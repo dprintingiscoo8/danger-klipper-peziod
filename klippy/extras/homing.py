@@ -240,7 +240,7 @@ class Homing:
 
         for rail in affected_rails:
             ch = rail.get_tmc_current_helper()
-            if ch is not None and ch._home_current != ch.run_current:
+            if ch is not None and ch.needs_home_current_change():
                 ch.set_current_for_homing(print_time)
                 self.toolhead.dwell(ch.current_change_dwell_time)
 
@@ -254,7 +254,7 @@ class Homing:
 
         for rail in affected_rails:
             ch = rail.get_tmc_current_helper()
-            if ch is not None and ch._home_current != ch.run_current:
+            if ch is not None and ch.needs_home_current_change():
                 ch.set_current_for_normal(print_time)
                 self.toolhead.dwell(ch.current_change_dwell_time)
 
