@@ -284,10 +284,12 @@ class Homing:
         # Perform second home
         if hi.retract_dist:
             needs_rehome = False
+            retract_dist = hi.retract_dist
             if any(
-                [abs(dist) < hi.retract_dist for dist in homing_axis_distances]
+                [abs(dist) < hi.min_home_dist for dist in homing_axis_distances]
             ):
                 needs_rehome = True
+                retract_dist = hi.min_home_dist
 
             logging.info("needs rehome: %s", needs_rehome)
             # Retract
@@ -295,7 +297,7 @@ class Homing:
             homepos = self._fill_coord(movepos)
             axes_d = [hp - sp for hp, sp in zip(homepos, startpos)]
             move_d = math.sqrt(sum([d * d for d in axes_d[:3]]))
-            retract_r = min(1.0, hi.retract_dist / move_d)
+            retract_r = min(1.0, retract_dist / move_d)
             retractpos = [
                 hp - ad * retract_r for hp, ad in zip(homepos, axes_d)
             ]
