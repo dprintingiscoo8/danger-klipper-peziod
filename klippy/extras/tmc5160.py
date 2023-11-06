@@ -265,6 +265,9 @@ class TMC5160CurrentHelper:
         self._home_current = config.getfloat(
             "home_current", self.run_current, above=0.0, maxval=MAX_CURRENT
         )
+        self.current_change_dwell_time = config.getfloat(
+            "current_change_dwell_time", 0.5, above=0.0
+        )
         self._prev_current = self.run_current
         self.req_hold_current = self.hold_current
         self.sense_resistor = config.getfloat(

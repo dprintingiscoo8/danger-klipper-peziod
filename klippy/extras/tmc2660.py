@@ -126,6 +126,9 @@ class TMC2660CurrentHelper:
         self._home_current = config.getfloat(
             "home_current", self.current, above=0.0, maxval=MAX_CURRENT
         )
+        self.current_change_dwell_time = config.getfloat(
+            "current_change_dwell_time", 0.5, above=0.0
+        )
         self._prev_current = self.current
         self.sense_resistor = config.getfloat("sense_resistor")
         vsense, cs = self._calc_current(self.current)

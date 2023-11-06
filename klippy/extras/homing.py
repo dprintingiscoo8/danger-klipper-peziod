@@ -240,9 +240,9 @@ class Homing:
 
         for rail in affected_rails:
             ch = rail.get_tmc_current_helper()
-            if ch is not None:
+            if ch is not None and ch._home_current != ch.run_current:
                 ch.set_current_for_homing(print_time)
-                self.toolhead.dwell(0.5)
+                self.toolhead.dwell(ch.current_change_dwell_time)
 
     def _set_current_post_homing(self, homing_axes):
         print_time = self.toolhead.get_last_move_time()
@@ -254,9 +254,9 @@ class Homing:
 
         for rail in affected_rails:
             ch = rail.get_tmc_current_helper()
-            if ch is not None:
+            if ch is not None and ch._home_current != ch.run_current:
                 ch.set_current_for_normal(print_time)
-                self.toolhead.dwell(0.5)
+                self.toolhead.dwell(ch.current_change_dwell_time)
 
     def home_rails(self, rails, forcepos, movepos):
         # Notify of upcoming homing operation
@@ -284,7 +284,9 @@ class Homing:
         # Perform second home
         if hi.retract_dist:
             needs_rehome = False
-            if any([dist < hi.retract_dist for dist in homing_axis_distances]):
+            if any(
+                [abs(dist) < hi.retract_dist for dist in homing_axis_distances]
+            ):
                 needs_rehome = True
 
             logging.info("needs rehome: %s", needs_rehome)
@@ -299,7 +301,6 @@ class Homing:
             ]
             self.toolhead.move(retractpos, hi.retract_speed)
             if not hi.use_sensorless_homing or needs_rehome:
-                self.toolhead.dwell(0.5)
                 # Home again
                 startpos = [
                     rp - ad * retract_r for rp, ad in zip(retractpos, axes_d)
