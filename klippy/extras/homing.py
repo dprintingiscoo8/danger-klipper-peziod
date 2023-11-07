@@ -303,6 +303,8 @@ class Homing:
             ]
             self.toolhead.move(retractpos, hi.retract_speed)
             if not hi.use_sensorless_homing or needs_rehome:
+                if hi.use_sensorless_homing:
+                    self.toolhead.dwell(0.5)
                 # Home again
                 startpos = [
                     rp - ad * retract_r for rp, ad in zip(retractpos, axes_d)
