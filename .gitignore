@@ -3,7 +3,6 @@ out
 *.pyc
 .config
 .config.old
-klippy/.version
 .history/
 .DS_Store
 ci_build/
