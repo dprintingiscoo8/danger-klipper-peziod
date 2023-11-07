@@ -244,8 +244,7 @@ def get_git_version(from_file=True):
         retcode = process.wait()
         if retcode == 0:
             git_info["version"] = str(ver.strip().decode())
-            if from_file:
-                git_info["version"] = get_version_from_file(klippy_src)
+
             process = subprocess.Popen(
                 prog_status, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
@@ -259,9 +258,13 @@ def get_git_version(from_file=True):
             else:
                 logging.debug("Error getting git status: %s", err)
             git_info.update(_get_repo_info(gitdir))
+            if from_file:
+                git_info["version"] = get_version_from_file(klippy_src)
             return git_info
         else:
             logging.debug("Error getting git version: %s", err)
     except:
         logging.debug("Exception on run: %s", traceback.format_exc())
+    if from_file:
+        git_info["version"] = get_version_from_file(klippy_src)
     return git_info
