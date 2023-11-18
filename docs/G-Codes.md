@@ -303,6 +303,30 @@ Also provided is the following extended G-Code command:
   setting the supplied `MSG` as the current display message.  If
   `MSG` is omitted the display will be cleared.
 
+## [dockable_probe]
+
+In addition to the normal commands available for a `[probe]`, the following
+commands are available when a
+[dockable_probe config section](Config_Reference.md#dockable_probe) is enabled
+(also see the [Dockable Probe guide](Dockable_Probe.md)):
+
+- `ATTACH_PROBE`: Move to dock and attach probe to the toolhead, the toolhead
+  will return to its previous position after attaching.
+- `DETACH_PROBE`: Move to dock and detach probe from the toolhead, the toolhead
+  will return to its previous position after detaching.
+- `QUERY_DOCKABLE_PROBE`: Respond with current probe state. This is useful for
+  verifying configuration settings are working as intended.
+- `SET_DOCKABLE_PROBE AUTO_ATTACH_DETACH=0|1`: Enable/Disable the automatic
+  attaching/detaching of the probe during actions that require the probe.
+- `MOVE_TO_APPROACH_PROBE`: Move to approach the probe dock.
+- `MOVE_TO_DOCK_PROBE`: Move to the probe dock (this should trigger the probe
+  to attach).
+- `MOVE_TO_EXTRACT_PROBE`: Move to leave the dock with the probe attached.
+- `MOVE_TO_INSERT_PROBE`: Move to insert position near the dock
+  with the probe attached.
+- `MOVE_TO_DETACH_PROBE`: Move away from the dock to disconnect the probe
+  from the toolhead.
+
 ### [dual_carriage]
 
 The following command is available when the
@@ -310,9 +334,33 @@ The following command is available when the
 enabled.
 
 #### SET_DUAL_CARRIAGE
-`SET_DUAL_CARRIAGE CARRIAGE=[0|1]`: This command will set the active
-carriage. It is typically invoked from the activate_gcode and
-deactivate_gcode fields in a multiple extruder configuration.
+`SET_DUAL_CARRIAGE CARRIAGE=[0|1] [MODE=[PRIMARY|COPY|MIRROR]]`:
+This command will change the mode of the specified carriage.
+If no `MODE` is provided it defaults to `PRIMARY`. Setting the mode
+to `PRIMARY` deactivates the other carriage and makes the specified
+carriage execute subsequent G-Code commands as-is. `COPY` and `MIRROR`
+modes are supported only for `CARRIAGE=1`. When set to either of these
+modes, carriage 1 will then track the subsequent moves of the carriage 0
+and either copy relative movements of it (in `COPY` mode) or execute them
+in the opposite (mirror) direction (in `MIRROR` mode).
+
+#### SAVE_DUAL_CARRIAGE_STATE
+`SAVE_DUAL_CARRIAGE_STATE [NAME=<state_name>]`: Save the current positions
+of the dual carriages and their modes. Saving and restoring DUAL_CARRIAGE
+state can be useful in scripts and macros, as well as in homing routine
+overrides. If NAME is provided it allows one to name the saved state
+to the given string. If NAME is not provided it defaults to "default".
+
+#### RESTORE_DUAL_CARRIAGE_STATE
+`RESTORE_DUAL_CARRIAGE_STATE [NAME=<state_name>] [MOVE=[0|1] [MOVE_SPEED=<speed>]]`:
+Restore the previously saved positions of the dual carriages and their modes,
+unless "MOVE=0" is specified, in which case only the saved modes will be
+restored, but not the positions of the carriages. If positions are being
+restored and "MOVE_SPEED" is specified, then the toolhead moves will be
+performed with the given speed (in mm/s); otherwise the toolhead move will
+use the rail homing speed. Note that the carriages restore their positions
+only over their own axis, which may be necessary to correctly restore COPY
+and MIRROR mode of the dual carraige.
 
 ### [endstop_phase]
 
@@ -868,12 +916,21 @@ in the config file.
 
 #### PID_CALIBRATE
 `PID_CALIBRATE HEATER=<config_name> TARGET=<temperature>
-[WRITE_FILE=1]`: Perform a PID calibration test. The specified heater
-will be enabled until the specified target temperature is reached, and
-then the heater will be turned off and on for several cycles. If the
-WRITE_FILE parameter is enabled, then the file /tmp/heattest.txt will
-be created with a log of all temperature samples taken during the
-test.
+[WRITE_FILE=1] [TOLERANCE=0.02]`: Perform a PID calibration test. The
+specified heater will be enabled until the specified target temperature
+is reached, and then the heater will be turned off and on for several
+cycles. If the WRITE_FILE parameter is enabled, then the file
+/tmp/heattest.csv will be created with a log of all temperature samples
+taken during the test. TOLERANCE defaults to 0.02 if not passed in. The
+tighter the tolerance the better the calibration result will be, but how
+tight you can achieve depends on how clean your sensor readings are. low
+noise readings might allow 0.01, to be used, while noisy reading might
+require a value of 0.03 or higher.
+
+#### SET_HEATER_PID
+`SET_HEATER_PID HEATER=<config_name> KP=<kp> KI=<ki> KD=<kd>`: Will
+allow one to manually change PID parameters of heaters without a
+reload of the firmware.
 
 ### [pause_resume]
 
@@ -1159,7 +1216,7 @@ profile matching the supplied name from persistent memory. Note that
 after SAVE or REMOVE operations have been run the SAVE_CONFIG gcode
 must be run to make the changes to persistent memory permanent.
 
-### [smart_effector]
+### ⚠️ [smart_effector]
 
 Several commands are available when a
 [smart_effector config section](Config_Reference.md#smart_effector) is enabled.
@@ -1315,6 +1372,17 @@ print.
 #### SDCARD_RESET_FILE
 `SDCARD_RESET_FILE`: Unload file and clear SD state.
 
+### [axis_twist_compensation]
+
+The following commands are available when the
+[axis_twist_compensation config
+section](Config_Reference.md#axis_twist_compensation) is enabled.
+
+#### AXIS_TWIST_COMPENSATION_CALIBRATE
+`AXIS_TWIST_COMPENSATION_CALIBRATE [SAMPLE_COUNT=<value>]`: Initiates the X
+twist calibration wizard. `SAMPLE_COUNT` specifies the number of points along
+the X axis to calibrate at and defaults to 3.
+
 ### [z_thermal_adjust]
 
 The following commands are available when the
@@ -1333,6 +1401,22 @@ the config. `REF_TEMP` manually overrides the reference temperature typically
 set during homing (for use in e.g. non-standard homing routines) - will be reset
 automatically upon homing.
 
+### ⚠️ [z_calibration]
+
+The following commands are available when a
+[z_calibration config section](Config_Reference.md#z_calibration) is enabled
+(also see the [Z-Calibration guide](Z_Calibration.md)):
+- `CALIBRATE_Z`: This calibrates the current offset between the nozzle and
+  the print surface.
+- `PROBE_Z_ACCURACY [PROBE_SPEED=<mm/s>] [LIFT_SPEED=<mm/s>] [SAMPLES=<count>]
+  [SAMPLE_RETRACT_DIST=<mm>]`: Calculate the maximum, minimum,
+  average, median, and standard deviation of multiple probe
+  samples. By default, 10 SAMPLES are taken. Otherwise the optional
+  parameters default to their equivalent setting in the z_calibration or probe
+  config section.
+*Note* that appropriate macros and/or configurations are needed to attach
+and detach a mag-probe for these commands!
+
 ### [z_tilt]
 
 The following commands are available when the
@@ -1344,3 +1428,21 @@ command will probe the points specified in the config and then make independent
 adjustments to each Z stepper to compensate for tilt. See the PROBE command for
 details on the optional probe parameters. The optional `HORIZONTAL_MOVE_Z`
 value overrides the `horizontal_move_z` option specified in the config file.
+The follwing commands are availabe when the parameter "extra_points" is
+configured in the z_tilt_section:
+- `Z_TILT_CALIBRATE [AVGLEN=<value>]`: This command does multiple probe
+  runs similar to Z_TILT_ADJUST, but with the additional points given in
+  "extra_points". This leads to a more balanced bed adjustment in case the
+  bed is not perfectly flat. The command averages the error over multiple
+  runs and continues until the error does not decrease any further. It
+  calculates values for the z_offsets config parameter, which will in turn
+  be used by T_TILT_ADJUST to achieve the same accuracy without the extra
+  points.
+- `Z_TILT_AUTODETECT [AVGLEN=<value>] [DELTA=<value>]`: This command
+  determines the positions of the pivot points for each stepper motor.
+  It works silimar to Z_TILT_CALIBRATE, but it probes the bed with intential
+  small misalgnments of the steppers. The amount of misalignment can be
+  configured with the DELTA paramter. It iterates until the calculated
+  positions cannot be improved any further. This is can be lengthy procedure.
+IMPORTANT: For the Z_TILT_CALIBRATE and Z_TILT_AUTODETECT commands to work
+the numpy package has to be installed via ~/klippy-env/bin/pip install -v numpy.

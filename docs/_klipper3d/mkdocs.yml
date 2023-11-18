@@ -4,9 +4,9 @@
 # layout.  See that script and the README file for more details.
 
 # Site and directory configuration
-site_name: Klipper documentation
-repo_url: https://github.com/Klipper3d/klipper
-repo_name: Klipper3d/klipper
+site_name: Danger Klipper documentation
+repo_url: https://github.com/DangerKlippers/danger-klipper
+repo_name: DangerKlippers/danger-klipper
 edit_uri: blob/master/docs/
 use_directory_urls: False
 docs_dir: '../'
@@ -36,15 +36,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: white
-      accent: blue
+      primary: amber
+      accent: amber
       toggle:
         icon: material/lightbulb
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: grey
-      accent: light blue
+      primary: black
+      accent: amber
       toggle:
         icon: material/lightbulb-outline
         name: Switch to light mode
@@ -101,6 +101,7 @@ nav:
       - Manual_Level.md
       - Bed_Mesh.md
       - Endstop_Phase.md
+      - Axis_Twist_Compensation.md
     - Resonance Compensation:
       - Resonance_Compensation.md
       - Measuring_Resonances.md
@@ -132,6 +133,7 @@ nav:
     - RPi_microcontroller.md
     - Beaglebone.md
     - Bootloaders.md
+    - Bootloader_Entry.md
     - CANBUS.md
     - CANBUS_Troubleshooting.md
     - TSL1401CL_Filament_Width_Sensor.md
