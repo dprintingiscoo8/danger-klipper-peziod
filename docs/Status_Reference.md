@@ -39,6 +39,15 @@ the following strings: "adjust", "fine".
 - `current_screw`: The index for the current screw being adjusted.
 - `accepted_screws`: The number of accepted screws.
 
+## belay
+
+The following information is available in
+[belay some_name](Config_Reference.md#belay) objects:
+- `printer["belay <config_name>"].last_state`: Returns True if the belay's
+  sensor is in a triggered state (indicating its slider is compressed).
+- `printer["belay <config_name>"].enabled`: Returns True if the belay is
+  currently enabled.
+
 ## configfile
 
 The following information is available in the `configfile` object
@@ -187,6 +196,12 @@ The following information is available in the
   config file if a `SET_RETRACTION` command altered them. Additional information
   available is as follows.
 - `retract_state`: Returns 'True' if filament is retracted.
+
+## gcode
+
+The following information is available in the `gcode` object:
+- `commands`: Returns a list of all currently available commands. For each
+  command, if a help string is defined it will also be provided.
 
 ## gcode_button
 
@@ -338,7 +353,8 @@ is defined):
 ## output_pin
 
 The following information is available in
-[output_pin some_name](Config_Reference.md#output_pin) objects:
+[output_pin some_name](Config_Reference.md#output_pin) and
+[pwm_tool some_name](Config_Reference.md#pwm_tool) objects:
 - `value`: The "value" of the pin, as set by a `SET_PIN` command.
 
 ## palette2
@@ -386,6 +402,13 @@ is defined):
   command. Note, if this is used in a macro, due to the order of
   template expansion, the PROBE (or similar) command must be run prior
   to the macro containing this reference.
+
+## pwm_cycle_time
+
+The following information is available in
+[pwm_cycle_time some_name](Config_Reference.md#pwm_cycle_time)
+objects:
+- `value`: The "value" of the pin, as set by a `SET_PIN` command.
 
 ## quad_gantry_level
 

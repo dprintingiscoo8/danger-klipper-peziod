@@ -203,7 +203,6 @@ class DockableProbe:
         pin = config.get("pin")
         pin_params = ppins.lookup_pin(pin, can_invert=True, can_pullup=True)
         mcu = pin_params["chip"]
-        mcu.register_config_callback(self._build_config)
         self.mcu_endstop = mcu.setup_pin("endstop", pin_params)
 
         # Wrappers
@@ -283,6 +282,10 @@ class DockableProbe:
             "klippy:connect", self._handle_connect
         )
 
+        self.printer.register_event_handler(
+            "klippy:mcu_identify", self._handle_config
+        )
+
     # Parse a string coordinate representation from the config
     # and return a list of numbers.
     #
@@ -307,7 +310,7 @@ class DockableProbe:
         p[:supplied_dims] = vals
         return p
 
-    def _build_config(self):
+    def _handle_config(self):
         kin = self.printer.lookup_object("toolhead").get_kinematics()
         for stepper in kin.get_steppers():
             if stepper.is_active_axis("z"):
@@ -580,10 +583,9 @@ class DockableProbe:
 
     # Align z axis to prevent crashes
     def _align_z(self):
-        if not self._last_homed:
-            curtime = self.printer.get_reactor().monotonic()
-            homed_axes = self.toolhead.get_status(curtime)["homed_axes"]
-            self._last_homed = homed_axes
+        curtime = self.printer.get_reactor().monotonic()
+        homed_axes = self.toolhead.get_status(curtime)["homed_axes"]
+        self._last_homed = homed_axes
 
         if self.dock_requires_z:
             self._align_z_required()

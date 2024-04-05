@@ -400,10 +400,10 @@ class PrinterRail:
         self.endstop_map = {}
         self.add_extra_stepper(config)
         mcu_stepper = self.steppers[0]
+        self._tmc_current_helpers = None
         self.get_name = mcu_stepper.get_name
         self.get_commanded_position = mcu_stepper.get_commanded_position
         self.calc_position_from_coord = mcu_stepper.calc_position_from_coord
-        self.get_tmc_current_helper = mcu_stepper.get_tmc_current_helper
         # Primary endstop position
         mcu_endstop = self.endstops[0][0]
         if hasattr(mcu_endstop, "get_position_endstop"):
@@ -414,7 +414,7 @@ class PrinterRail:
             self.position_endstop = config.getfloat(
                 "position_endstop", default_position_endstop
             )
-        endstop_pin = config.get("endstop_pin")
+        endstop_pin = config.get("endstop_pin", None)
         # check for ":virtual_endstop" to make sure we don't detect ":z_virtual_endstop"
         endstop_is_virtual = (
             endstop_pin is not None and ":virtual_endstop" in endstop_pin
@@ -454,6 +454,9 @@ class PrinterRail:
         self.use_sensorless_homing = config.getboolean(
             "use_sensorless_homing", endstop_is_virtual
         )
+        self.min_home_dist = config.getfloat(
+            "min_home_dist", self.homing_retract_dist, minval=0.0
+        )
 
         if self.homing_positive_dir is None:
             axis_len = self.position_max - self.position_min
@@ -479,6 +482,13 @@ class PrinterRail:
                 % (config.get_name(),)
             )
 
+    def get_tmc_current_helpers(self):
+        if self._tmc_current_helpers is None:
+            self._tmc_current_helpers = [
+                s.get_tmc_current_helper() for s in self.steppers
+            ]
+        return self._tmc_current_helpers
+
     def get_range(self):
         return self.position_min, self.position_max
 
@@ -493,6 +503,7 @@ class PrinterRail:
                 "positive_dir",
                 "second_homing_speed",
                 "use_sensorless_homing",
+                "min_home_dist",
             ],
         )(
             self.homing_speed,
@@ -502,6 +513,7 @@ class PrinterRail:
             self.homing_positive_dir,
             self.second_homing_speed,
             self.use_sensorless_homing,
+            self.min_home_dist,
         )
         return homing_info
 

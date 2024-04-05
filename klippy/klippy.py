@@ -4,7 +4,7 @@
 # Copyright (C) 2016-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import sys, os, gc, optparse, logging, time, collections, importlib
+import sys, os, gc, optparse, logging, time, collections, importlib, importlib.util
 import util, reactor, queuelogger, msgproto
 import gcode, configfile, pins, mcu, toolhead, webhooks
 
@@ -198,6 +198,9 @@ class Printer:
             m.add_printer_objects(config)
         for section_config in config.get_prefix_sections(""):
             self.load_object(config, section_config.get_name(), None)
+        # dangerklipper on-by-default extras
+        for section_config in ["force_move"]:
+            self.load_object(config, section_config, None)
         for m in [toolhead]:
             m.add_printer_objects(config)
         # Validate that there are no undefined parameters in the config file
@@ -434,6 +437,11 @@ def main():
         help="write log to file instead of stderr",
     )
     opts.add_option(
+        "--rotate-log-at-restart",
+        action="store_true",
+        help="rotate the log file at every restart",
+    )
+    opts.add_option(
         "-v", action="store_true", dest="verbose", help="enable debug messages"
     )
     opts.add_option(
@@ -482,7 +490,13 @@ def main():
     bglogger = None
     if options.logfile:
         start_args["log_file"] = options.logfile
-        bglogger = queuelogger.setup_bg_logging(options.logfile, debuglevel)
+        bglogger = queuelogger.setup_bg_logging(
+            filename=options.logfile,
+            debuglevel=debuglevel,
+            rotate_log_at_restart=options.rotate_log_at_restart,
+        )
+        if options.rotate_log_at_restart:
+            bglogger.doRollover()
     else:
         logging.getLogger().setLevel(debuglevel)
     logging.info("=======================")
@@ -529,6 +543,8 @@ def main():
         main_reactor = printer = None
         logging.info("Restarting printer")
         start_args["start_reason"] = res
+        if options.rotate_log_at_restart and bglogger is not None:
+            bglogger.doRollover()
 
     if bglogger is not None:
         bglogger.stop()

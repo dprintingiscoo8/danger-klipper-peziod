@@ -73,36 +73,56 @@ pins such as "extra_mcu:ar9" may then be used elsewhere in the config
 [mcu my_extra_mcu]
 # See the "mcu" section for configuration parameters.
 ```
+
 ## ⚠️ Danger Options
+
 A collection of DangerKlipper-specific system options
+
 ```
 [danger_options]
-
-# If an unused config option or section should cause an error
-# if False, will warn but allow klipper to still run
-error_on_unused_config_options: True
-
-# If statistics should be logged
-# (helpful for keeping the log clean during development)
-log_statistics: True
-
-# If the config file should be logged at startup
-log_config_file_at_startup: True
-
-# If the bed mesh should be logged on startup
-# (helpful for keeping the log clean during development)
-log_bed_mesh_at_startup: True
-
-# If we should log detailed crash info when an exception occurs
-# Most of it is overly-verbose and fluff and we still get a stack trace
-# for normal exceptions, so setting to False can help save time while developing
-log_shutdown_info: True
-
-# Allows modules in `plugins` to override modules of the same name in `extras`
-allow_plugin_override: False
-
-# The timeout (in seconds) for MCU synchronization during the homing process when multiple MCUs are in use.
-multi_mcu_trsync_timeout: 0.025
+#error_on_unused_config_options: True
+#   If an unused config option or section should cause an error
+#   if False, will warn but allow klipper to still run.
+#   The default is True.
+#log_statistics: True
+#   If statistics should be logged
+#   (helpful for keeping the log clean during development)
+#   The default is True.
+#log_config_file_at_startup: True
+#   If the config file should be logged at startup
+#   The default is True.
+#log_bed_mesh_at_startup: True
+#   If the bed mesh should be logged on startup
+#   (helpful for keeping the log clean during development)
+#   The default is True.
+#log_shutdown_info: True
+#   If we should log detailed crash info when an exception occurs
+#   Most of it is overly-verbose and fluff and we still get a stack trace
+#   for normal exceptions, so setting to False can help save time while developing
+#   The default is True.
+#allow_plugin_override: False
+#   Allows modules in `plugins` to override modules of the same name in `extras`
+#   The default is False.
+#multi_mcu_trsync_timeout: 0.025
+#   The timeout (in seconds) for MCU synchronization during the homing process when
+#   multiple MCUs are in use. The default is 0.025
+#homing_elapsed_distance_tolerance: 0.5
+#   Tolerance (in mm) for distance moved in the second homing. Ensures the
+#   second homing distance closely matches the `min_home_dist` when using
+#   sensorless homing. The default is 0.5mm.
+#adc_ignore_limits: False
+#   When set to true, this parameter ignores the min_value and max_value
+#   limits for ADC temperature sensors. It prevents shutdowns due to
+#   'ADC out of range' errors by allowing readings outside the specified
+#   range without triggering a shutdown. Default is False.
+#autosave_includes: False
+#   When set to true, SAVE_CONFIG will recursively read [include ...] blocks
+#   for conflicts to autosave data. Any configurations updated will be backed
+#   up to configs/config_backups.
+#bgflush_extra_time: 0.250
+#   This allows to set extra flush time (in seconds). Under certain conditions, 
+#   a low value will result in an error if message is not get flushed, a high value
+#   (0.250) will result in homing/probing latency. The default is 0.250
 ```
 
 ## Common kinematic settings
@@ -119,16 +139,22 @@ kinematics:
 #   deltesian, polar, winch, or none. This parameter must be specified.
 max_velocity:
 #   Maximum velocity (in mm/s) of the toolhead (relative to the
-#   print). This parameter must be specified.
+#   print). This value may be changed at runtime using the
+#   SET_VELOCITY_LIMIT command. This parameter must be specified.
 max_accel:
 #   Maximum acceleration (in mm/s^2) of the toolhead (relative to the
-#   print). This parameter must be specified.
+#   print). Although this parameter is described as a "maximum"
+#   acceleration, in practice most moves that accelerate or decelerate
+#   will do so at the rate specified here. The value specified here
+#   may be changed at runtime using the SET_VELOCITY_LIMIT command.
+#   This parameter must be specified.
 #max_accel_to_decel:
 #   A pseudo acceleration (in mm/s^2) controlling how fast the
 #   toolhead may go from acceleration to deceleration. It is used to
 #   reduce the top speed of short zig-zag moves (and thus reduce
-#   printer vibration from these moves). The default is half of
-#   max_accel.
+#   printer vibration from these moves). The value specified here may
+#   be changed at runtime using the SET_VELOCITY_LIMIT command. The
+#   default is half of max_accel.
 #square_corner_velocity: 5.0
 #   The maximum velocity (in mm/s) that the toolhead may travel a 90
 #   degree corner at. A non-zero value can reduce changes in extruder
@@ -138,7 +164,9 @@ max_accel:
 #   larger than 90 degrees will have a higher cornering velocity while
 #   corners with angles less than 90 degrees will have a lower
 #   cornering velocity. If this is set to zero then the toolhead will
-#   decelerate to zero at each corner. The default is 5mm/s.
+#   decelerate to zero at each corner. The value specified here may be
+#   changed at runtime using the SET_VELOCITY_LIMIT command. The
+#   default is 5mm/s.
 ```
 
 ### [stepper]
@@ -218,6 +246,11 @@ position_max:
 #   Speed to use on the retract move after homing in case this should
 #   be different from the homing speed, which is the default for this
 #   parameter
+#min_home_dist:
+#   Minimum distance (in mm) for toolhead before sensorless homing. If closer
+#   than `min_home_dist` to endstop, it moves away to this distance, then homes.
+#   If further, it directly homes and retracts to `homing_retract_dist`.
+#   The default is equal to `homing_retract_dist`.
 #second_homing_speed:
 #   Velocity (in mm/s) of the stepper when performing the second home.
 #   The default is homing_speed/2.
@@ -267,16 +300,70 @@ max_z_accel:
 [stepper_z]
 ```
 
-### Linear Delta Kinematics
+### ⚠️ Cartesian Kinematics with limits for X and Y axes
 
-See [example-delta.cfg](../config/example-delta.cfg) for an example
-linear delta kinematics config file. See the
-[delta calibrate guide](Delta_Calibrate.md) for information on
-calibration.
+Behaves exactly the as cartesian kinematics, but allows to set a velocity and
+acceleration limit for X and Y axis. This also makes command [`SET_KINEMATICS_LIMIT`](./G-Codes.md#⚠️-set_kinematics_limit) available to sets these limits at runtime.
 
-Only parameters specific to linear delta printers are described here -
-see [common kinematic settings](#common-kinematic-settings) for
-available parameters.
+
+```
+[printer]
+kinematics: limited_cartesian
+max_x_velocity:
+#   This sets the maximum velocity (in mm/s) of movement along the x
+#   axis. This setting can be used to restrict the maximum speed of
+#   the x stepper motor. The default is to use max_velocity for
+#   max_x_velocity.
+max_y_velocity:
+#   This sets the maximum velocity (in mm/s) of movement along the y
+#   axis. This setting can be used to restrict the maximum speed of
+#   the y stepper motor. The default is to use max_velocity for
+#   max_x_velocity.
+max_z_velocity:
+#   See cartesian above.
+max_velocity:
+#   In order to get maximum velocity gains on diagonals, this should be equal or
+#   greater than the hypotenuse (sqrt(x*x + y*y)) of max_x_velocity and
+#   max_y_velocity.
+max_x_accel:
+#   This sets the maximum acceleration (in mm/s^2) of movement along
+#   the x axis. It limits the acceleration of the x stepper motor. The
+#   default is to use max_accel for max_x_accel.
+max_y_accel:
+#   This sets the maximum acceleration (in mm/s^2) of movement along
+#   the y axis. It limits the acceleration of the y stepper motor. The
+#   default is to use max_accel for max_y_accel.
+max_z_accel:
+# See cartesian above.
+max_accel:
+# See cartesian above.
+scale_xy_accel: False
+#   When true, scales the XY limits by the current tool head acceleration.
+#   The factor is: slicer accel / hypot(max_x_accel, max_y_accel).
+#   See below.
+```
+
+If scale_xy_accel is `False`, the acceleration set by `max_accel`, M204 or
+SET_VELOCITY_LIMIT, acts as a third limit. In that case, this module doesn't
+apply limitations on moves having an acceleration lower than `max_x_accel`` and
+`max_y_accel`. When scale_xy_accel is `True`, `max_x_accel` and `max_y_accel`
+are scaled by the ratio of the dynamically set acceleration and the hypotenuse
+of max_x_accel and `max_y_accel`, as reported from `SET_KINEMATICS_LIMIT`. This
+implies that the actual acceleration will always depend on the direction. For
+example, these settings:
+
+```
+[printer]
+max_x_accel: 12000
+max_y_accel: 9000
+scale_xy_accel: true
+```
+
+`SET_KINEMATICS_LIMIT` will report a maximum acceleration of 15000 mm/s^2 on 37°
+diagonals. If the slicer emit `M204 S3000` (3000 mm/s^2 accel). On these 37° and
+143° diagonals, the toolhead will accelerate at 3000 mm/s^2. On the X axis, the
+acceleration will be  12000 * 3000 / 15000 = 2400 mm/s^2, and 18000 mm/s^2 for
+pure Y moves.
 
 ```
 [printer]
@@ -360,7 +447,7 @@ example deltesian kinematics config file.
 
 Only parameters specific to deltesian printers are described here - see
 [common kinematic settings](#common-kinematic-settings) for available
- parameters.
+parameters.
 
 ```
 [printer]
@@ -461,6 +548,37 @@ max_z_accel:
 # The stepper_z section is used to describe the stepper controlling
 # the Z axis.
 [stepper_z]
+```
+
+### ⚠️ CoreXY Kinematics with limits for X and Y axes
+
+Behaves exactly the as CoreXY kinematics, but allows to set a acceleration limit
+for X and Y axis.
+
+There is no velocity limits for X and Y, since on a CoreXY the pull-out velocity
+are identical on both axes.
+
+
+```
+[printer]
+kinematics: limited_corexy
+max_z_velocity:
+#   See CoreXY above.
+max_x_accel:
+#   This sets the maximum acceleration (in mm/s^2) of movement along
+#   the x axis. It limits the acceleration of the x stepper motor. The
+#   default is to use max_accel for max_x_accel.
+max_y_accel:
+#   This sets the maximum acceleration (in mm/s^2) of movement along
+#   the y axis. It limits the acceleration of the y stepper motor. The
+#   default is to use max_accel for max_y_accel.
+max_z_accel:
+# See CoreXY above.
+max_accel:
+# See CoreXY above..
+scale_xy_accel:
+#   When True, scales the XY limits by the current tool head acceleration.
+#   The factor is: slicer accel / max(max_x_accel, max_y_accel).
 ```
 
 ### CoreXZ Kinematics
@@ -877,6 +995,11 @@ max_temp:
 #   heater and sensor hardware failures. Set this range just wide
 #   enough so that reasonable temperatures do not result in an error.
 #   These parameters must be provided.
+per_move_pressure_advance: False
+#   If true, uses pressure advance constant from trapq when processing moves
+#   This causes changes to pressure advance be taken into account immediately,
+#   for all moves in the current queue, rather than ~250ms later once the queue gets flushed
+
 ```
 
 ### [heater_bed]
@@ -909,6 +1032,7 @@ See the [bed mesh guide](Bed_Mesh.md) and
 [command reference](G-Codes.md#bed_mesh) for additional information.
 
 Visual Examples:
+
 ```
  rectangular bed, probe_count = 3, 3:
              x---x---x (max_point)
@@ -1008,18 +1132,17 @@ Visual Examples:
 #   where Z = 0.  When this option is specified the mesh will be offset
 #   so that zero Z adjustment occurs at this location.  The default is
 #   no zero reference.
-#relative_reference_index:
-#   **DEPRECATED, use the "zero_reference_position" option**
-#   The legacy option superceded by the "zero reference position".
-#   Rather than a coordinate this option takes an integer "index" that
-#   refers to the location of one of the generated points. It is recommended
-#   to use the "zero_reference_position" instead of this option for new
-#   configurations. The default is no relative reference index.
 #faulty_region_1_min:
 #faulty_region_1_max:
 #   Optional points that define a faulty region.  See docs/Bed_Mesh.md
 #   for details on faulty regions.  Up to 99 faulty regions may be added.
 #   By default no faulty regions are set.
+#adaptive_margin:
+#   An optional margin (in mm) to be added around the bed area used by
+#   the defined print objects when generating an adaptive mesh.
+#bed_mesh_default:
+#   Optionally provide the name of a profile you would like loaded on init.
+#   By default, no profile is loaded.
 ```
 
 ### [bed_tilt]
@@ -1140,7 +1263,7 @@ information.
 #screw_thread: CW-M3
 #   The type of screw used for bed leveling, M3, M4, or M5, and the
 #   rotation direction of the knob that is used to level the bed.
-#   Accepted values: CW-M3, CCW-M3, CW-M4, CCW-M4, CW-M5, CCW-M5.
+#   Accepted values: CW-M3, CCW-M3, CW-M4, CCW-M4, CW-M5, CCW-M5, CW-M8, CCW-M8.
 #   Default value is CW-M3 which most printers use. A clockwise
 #   rotation of the knob decreases the gap between the nozzle and the
 #   bed. Conversely, a counter-clockwise rotation increases the gap.
@@ -1162,15 +1285,7 @@ extended [G-Code command](G-Codes.md#z_tilt) becomes available.
 #   stepper. It is described using nozzle coordinates (the X, Y position
 #   of the nozzle if it could move directly above the point). The
 #   first entry corresponds to stepper_z, the second to stepper_z1,
-#   the third to stepper_z2, etc. This parameter must be provided,
-#   unless the parameter "extra_points" is provided. In that case only
-#   the command Z_TILT_AUTODETECT can be run to automatically determine
-#   the z_positions. See 'extra_points' below.
-#z_offsets:
-#   A list of Z offsets for each z_position. The z_offset is added to each
-#   probed value during Z_TILT_ADJUST to offset for unevenness of the bed.
-#   This values can also be automatically detected by running
-#   Z_TILT_CALIBRATE. See "extra_points" below.
+#   the third to stepper_z2, etc. This parameter must be provided.
 #points:
 #   A list of X, Y coordinates (one per line; subsequent lines
 #   indented) that should be probed during a Z_TILT_ADJUST command.
@@ -1193,6 +1308,30 @@ extended [G-Code command](G-Codes.md#z_tilt) becomes available.
 #   more points than steppers then you will likely have a fixed
 #   minimum value for the range of probed points which you can learn
 #   by observing command output.
+```
+
+```
+[z_tilt_ng]
+#z_positions:
+# See [z_tilt]. This parameter must be provided,
+#   unless the parameter "extra_points" is provided. In that case only
+#   the command Z_TILT_AUTODETECT can be run to automatically determine
+#   the z_positions. See 'extra_points' below.
+#z_offsets:
+#   A list of Z offsets for each z_position. The z_offset is added to each
+#   probed value during Z_TILT_ADJUST to offset for unevenness of the bed.
+#   This values can also be automatically detected by running
+#   Z_TILT_CALIBRATE. See "extra_points" below.
+#points:
+# See [z_tilt]
+#speed: 50
+# See [z_tilt]
+#horizontal_move_z: 5
+# See [z_tilt]
+#retries: 0
+# See [z_tilt]
+#retry_tolerance: 0
+# See [z_tilt]
 #extra_points:
 #   A list in the same format as "points" above. This list contains
 #   additional points to be probed during the two calibration commands
@@ -1229,6 +1368,7 @@ WARNING: Using this on a moving bed may lead to undesirable results.
 If this section is present then a QUAD_GANTRY_LEVEL extended G-Code
 command becomes available. This routine assumes the following Z motor
 configuration:
+
 ```
  ----------------
  |Z1          Z2|
@@ -1239,6 +1379,7 @@ configuration:
  |Z           Z3|
  ----------------
 ```
+
 Where x is the 0, 0 point on the bed
 
 ```
@@ -1505,7 +1646,8 @@ explicit idle_timeout config section to change the default settings.
 #   "TURN_OFF_HEATERS" and "M84".
 #timeout: 600
 #   Idle time (in seconds) to wait before running the above G-Code
-#   commands. The default is 600 seconds.
+#   commands. Set it to 0 to disable the timeout feature.
+#   The default is 600 seconds.
 ```
 
 ## Optional G-Code features
@@ -1547,7 +1689,9 @@ file for a Marlin compatible M808 G-Code macro.
 [sdcard_loop]
 ```
 
-### [force_move]
+### ⚠ [force_move]
+
+This module is enabled by default in DangerKlipper!
 
 Support manually moving stepper motors for diagnostic purposes. Note,
 using this feature may place the printer in an invalid state - see the
@@ -1555,9 +1699,9 @@ using this feature may place the printer in an invalid state - see the
 
 ```
 [force_move]
-#enable_force_move: False
+#enable_force_move: True
 #   Set to true to enable FORCE_MOVE and SET_KINEMATIC_POSITION
-#   extended G-Code commands. The default is false.
+#   extended G-Code commands. The default is true.
 ```
 
 ### [pause_resume]
@@ -1647,6 +1791,7 @@ Enable the "M118" and "RESPOND" extended
 ```
 
 ### [exclude_object]
+
 Enables support to exclude or cancel individual objects during the printing
 process.
 
@@ -1863,7 +2008,7 @@ aliases_<name>:
 
 Include file support. One may include additional config file from the
 main printer config file. Wildcards may also be used (eg,
-"configs/*.cfg").
+"configs/\*.cfg").
 
 ```
 [include my_other_config.cfg]
@@ -2695,9 +2840,9 @@ sensor_pin:
 #   name in the above list.
 ```
 
-### BMP280/BME280/BME680 temperature sensor
+### BMP180/BMP280/BME280/BME680 temperature sensor
 
-BMP280/BME280/BME680 two wire interface (I2C) environmental sensors.
+BMP180/BMP280/BME280/BME680 two wire interface (I2C) environmental sensors.
 Note that these sensors are not intended for use with extruders and
 heater beds, but rather for monitoring ambient temperature (C),
 pressure (hPa), relative humidity and in case of the BME680 gas level.
@@ -2708,7 +2853,7 @@ temperature.
 ```
 sensor_type: BME280
 #i2c_address:
-#   Default is 118 (0x76). Some BME280 sensors have an address of 119
+#   Default is 118 (0x76). The BMP180 and some BME280 sensors have an address of 119
 #   (0x77).
 #i2c_mcu:
 #i2c_bus:
@@ -2806,7 +2951,7 @@ sensor_type: LM75
 
 ### Builtin micro-controller temperature sensor
 
-The atsam, atsamd, and stm32 micro-controllers contain an internal
+The atsam, atsamd, stm32 and rp2040 micro-controllers contain an internal
 temperature sensor. One can use the "temperature_mcu" sensor to
 monitor these temperatures.
 
@@ -3345,24 +3490,12 @@ pin:
 #   If this is true, the value fields should be between 0 and 1; if it
 #   is false the value fields should be either 0 or 1. The default is
 #   False.
-#static_value:
-#   If this is set, then the pin is assigned to this value at startup
-#   and the pin can not be changed during runtime. A static pin uses
-#   slightly less ram in the micro-controller. The default is to use
-#   runtime configuration of pins.
 #value:
 #   The value to initially set the pin to during MCU configuration.
 #   The default is 0 (for low voltage).
 #shutdown_value:
 #   The value to set the pin to on an MCU shutdown event. The default
 #   is 0 (for low voltage).
-#maximum_mcu_duration:
-#   The maximum duration a non-shutdown value may be driven by the MCU
-#   without an acknowledge from the host.
-#   If host can not keep up with an update, the MCU will shutdown
-#   and set all pins to their respective shutdown values.
-#   Default: 0 (disabled)
-#   Usual values are around 5 seconds.
 #cycle_time: 0.100
 #   The amount of time (in seconds) per PWM cycle. It is recommended
 #   this be 10 milliseconds or greater when using software based PWM.
@@ -3382,6 +3515,54 @@ pin:
 #   then the 'value' parameter can be specified using the desired
 #   amperage for the stepper. The default is to not scale the 'value'
 #   parameter.
+#maximum_mcu_duration:
+#static_value:
+#   These options are deprecated and should no longer be specified.
+```
+
+### [pwm_tool]
+
+Pulse width modulation digital output pins capable of high speed
+updates (one may define any number of sections with an "output_pin"
+prefix). Pins configured here will be setup as output pins and one may
+modify them at run-time using "SET_PIN PIN=my_pin VALUE=.1" type
+extended [g-code commands](G-Codes.md#output_pin).
+
+```
+[pwm_tool my_tool]
+pin:
+#   The pin to configure as an output. This parameter must be provided.
+#maximum_mcu_duration:
+#   The maximum duration a non-shutdown value may be driven by the MCU
+#   without an acknowledge from the host.
+#   If host can not keep up with an update, the MCU will shutdown
+#   and set all pins to their respective shutdown values.
+#   Default: 0 (disabled)
+#   Usual values are around 5 seconds.
+#value:
+#shutdown_value:
+#cycle_time: 0.100
+#hardware_pwm: False
+#scale:
+#   See the "output_pin" section for the definition of these parameters.
+```
+
+### [pwm_cycle_time]
+
+Run-time configurable output pins with dynamic pwm cycle timing (one
+may define any number of sections with an "pwm_cycle_time" prefix).
+Pins configured here will be setup as output pins and one may modify
+them at run-time using "SET_PIN PIN=my_pin VALUE=.1 CYCLE_TIME=0.100"
+type extended [g-code commands](G-Codes.md#pwm_cycle_time).
+
+```
+[pwm_cycle_time my_pin]
+pin:
+#value:
+#shutdown_value:
+#cycle_time: 0.100
+#scale:
+#   See the "output_pin" section for information on these parameters.
 ```
 
 ### [static_digital_output]
@@ -3464,6 +3645,9 @@ run_current:
 #home_current:
 #   The amount of current (in amps RMS) to configure the driver to use
 #   during homing procedures. The default is to not reduce the current.
+#current_change_dwell_time:
+#   The amount of time (in seconds) to wait after changing homing current.
+#   The default is 0.5 seconds.
 #sense_resistor: 0.110
 #   The resistance (in ohms) of the motor sense resistor. The default
 #   is 0.110 ohms.
@@ -3560,6 +3744,9 @@ run_current:
 #home_current:
 #   The amount of current (in amps RMS) to configure the driver to use
 #   during homing procedures. The default is to not reduce the current.
+#current_change_dwell_time:
+#   The amount of time (in seconds) to wait after changing homing current.
+#   The default is 0.5 seconds.
 #sense_resistor: 0.110
 #   The resistance (in ohms) of the motor sense resistor. The default
 #   is 0.110 ohms.
@@ -3604,6 +3791,7 @@ uart_pin:
 run_current:
 #hold_current:
 #home_current:
+#current_change_dwell_time:
 #sense_resistor: 0.110
 #stealthchop_threshold: 0
 #   See the "tmc2208" section for the definition of these parameters.
@@ -3675,6 +3863,9 @@ run_current:
 #home_current:
 #   The amount of current (in amps RMS) to configure the driver to use
 #   during homing procedures. The default is to not reduce the current.
+#current_change_dwell_time:
+#   The amount of time (in seconds) to wait after changing homing current.
+#   The default is 0.5 seconds.
 #sense_resistor:
 #   The resistance (in ohms) of the motor sense resistor. This
 #   parameter must be provided.
@@ -3758,6 +3949,9 @@ run_current:
 #home_current:
 #   The amount of current (in amps RMS) to configure the driver to use
 #   during homing procedures. The default is to not reduce the current.
+#current_change_dwell_time:
+#   The amount of time (in seconds) to wait after changing homing current.
+#   The default is 0.5 seconds.
 #rref: 12000
 #   The resistance (in ohms) of the resistor between IREF and GND. The
 #   default is 12000.
@@ -3882,6 +4076,9 @@ run_current:
 #home_current:
 #   The amount of current (in amps RMS) to configure the driver to use
 #   during homing procedures. The default is to not reduce the current.
+#current_change_dwell_time:
+#   The amount of time (in seconds) to wait after changing homing current.
+#   The default is 0.5 seconds.
 #sense_resistor: 0.075
 #   The resistance (in ohms) of the motor sense resistor. The default
 #   is 0.075 ohms.
@@ -4567,11 +4764,22 @@ more information.
 #   detected. See docs/Command_Templates.md for G-Code format. If
 #   pause_on_runout is set to True this G-Code will run after the
 #   PAUSE is complete. The default is not to run any G-Code commands.
+#immediate_runout_gcode:
+#   A list of G-Code commands to execute immediately after a filament
+#   runout is detected and runout_distance is greater than 0.
+#   See docs/Command_Templates.md for G-Code format.
 #insert_gcode:
 #   A list of G-Code commands to execute after a filament insert is
 #   detected. See docs/Command_Templates.md for G-Code format. The
 #   default is not to run any G-Code commands, which disables insert
 #   detection.
+#runout_distance: 0.0
+#   Defines how much filament can still be pulled after the
+#   switch sensor triggered (e.g. you have a 60cm reverse bowden between your
+#   extruder and your sensor, you would then set runout_distance to something
+#   like 590 to leave a small safety margin and now the print will not
+#   immediately pause when the sensor triggers but rather keep printing until
+#   the filament is at the extruder). The default is 0 millimeters.
 #event_delay: 3.0
 #   The minimum amount of time in seconds to delay between events.
 #   Events triggered during this time period will be silently
@@ -4584,6 +4792,10 @@ more information.
 #switch_pin:
 #   The pin on which the switch is connected. This parameter must be
 #   provided.
+#smart:
+#   If set to true the sensor will use the virtual_sd_card module to determine
+#   whether the printer is printing which is more reliable but will not work
+#   when streaming a print over usb or similar.
 ```
 
 ### [filament_motion_sensor]
@@ -4610,6 +4822,7 @@ switch_pin:
 #insert_gcode:
 #event_delay:
 #pause_delay:
+#smart:
 #   See the "filament_switch_sensor" section for a description of the
 #   above parameters.
 ```
@@ -4673,6 +4886,9 @@ adc2:
 #   command.
 #min_diameter: 1.0
 #   Minimal diameter for trigger virtual filament_switch_sensor.
+#max_diameter:
+#   Maximum diameter for triggering virtual filament_switch_sensor.
+#   The default is default_nominal_filament_diameter + max_difference.
 #use_current_dia_while_delay: False
 #   Use the current diameter instead of the nominal diameter while
 #   the measurement delay has not run through.
@@ -4683,6 +4899,41 @@ adc2:
 #pause_delay:
 #   See the "filament_switch_sensor" section for a description of the
 #   above parameters.
+```
+
+### [belay]
+
+Belay extruder sync sensors (one may define any number of sections
+with a "belay" prefix).
+
+```
+[belay my_belay]
+extruder_type:
+#   The type of secondary extruder. Available choices are 'trad_rack'
+#   or 'extruder_stepper'. This parameter must be specified.
+extruder_stepper_name:
+#   The name of the extruder_stepper being used as the secondary
+#   extruder. Must be specified if extruder_type is set to
+#   'extruder_stepper', but should not be specified otherwise. For
+#   example, if the config section for the secondary extruder is
+#   [extruder_stepper my_extruder_stepper], this parameter's value
+#   would be 'my_extruder_stepper'.
+#multiplier_high: 1.05
+#   High multiplier to set for the secondary extruder when extruding
+#   forward and Belay is compressed or when extruding backward and
+#   Belay is expanded. The default is 1.05.
+#multiplier_low: 0.95
+#   Low multiplier to set for the secondary extruder when extruding
+#   forward and Belay is expanded or when extruding backward and
+#   Belay is compressed. The default is 0.95.
+#debug_level: 0
+#   Controls messages sent to the console. If set to 0, no messages
+#   will be sent. If set to 1, multiplier resets will be reported, and
+#   the multiplier will be reported whenever it is set in response to
+#   a switch state change. If set to 2, the behavior is the same as 1
+#   but with an additional message whenever the multiplier is set in
+#   response to detecting an extrusion direction change. The default
+#   is 0.
 ```
 
 ## Board specific hardware support
@@ -4852,8 +5103,8 @@ Octoprint as they will conflict, and 1 will fail to initialize
 properly likely aborting your print.
 
 If you use Octoprint and stream gcode over the serial port instead of
-printing from virtual_sd, then remo **M1** and **M0** from *Pausing commands*
-in *Settings > Serial Connection > Firmware & protocol* will prevent
+printing from virtual_sd, then remo **M1** and **M0** from _Pausing commands_
+in _Settings > Serial Connection > Firmware & protocol_ will prevent
 the need to start print on the Palette 2 and unpausing in Octoprint
 for your print to begin.
 
@@ -4876,7 +5127,7 @@ serial:
 ### [angle]
 
 Magnetic hall angle sensor support for reading stepper motor angle
-shaft measurements using a1333, as5047d, or tle5012b SPI chips.  The
+shaft measurements using a1333, as5047d, or tle5012b SPI chips. The
 measurements are available via the [API Server](API_Server.md) and
 [motion analysis tool](Debugging.md#motion-analysis-and-data-logging).
 See the [G-Code reference](G-Codes.md#angle) for available commands.
@@ -4944,8 +5195,8 @@ It is generally recommended to only use I2C devices that are on the
 same printed circuit board as the micro-controller.
 
 Most Klipper micro-controller implementations only support an
-`i2c_speed` of 100000 (*standard mode*, 100kbit/s). The Klipper "Linux"
-micro-controller supports a 400000 speed (*fast mode*, 400kbit/s), but it must be
+`i2c_speed` of 100000 (_standard mode_, 100kbit/s). The Klipper "Linux"
+micro-controller supports a 400000 speed (_fast mode_, 400kbit/s), but it must be
 [set in the operating system](RPi_microcontroller.md#optional-enabling-i2c)
 and the `i2c_speed` parameter is otherwise ignored. The Klipper
 "RP2040" micro-controller and ATmega AVR family support a rate of 400000

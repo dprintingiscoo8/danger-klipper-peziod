@@ -88,12 +88,19 @@ accelerometer does not have a name in its config section (simply
 `[adxl345]`) then `<chip>` part of the name is not generated.
 
 #### ACCELEROMETER_QUERY
-`ACCELEROMETER_QUERY [CHIP=<config_name>] [RATE=<value>]`: queries
+`ACCELEROMETER_QUERY [CHIP=<config_name>] [RATE=<value>]
+[SAMPLES=<value>] [RETURN=<value>]`: queries
 accelerometer for the current value. If CHIP is not specified it
 defaults to "adxl345". If RATE is not specified, the default value is
 used. This command is useful to test the connection to the ADXL345
 accelerometer: one of the returned values should be a free-fall
-acceleration (+/- some noise of the chip).
+acceleration (+/- some noise of the chip). The `SAMPLES` parameter
+can be set to sample multiple readings from the sensor. The readings
+will be averaged together. The default is to collect a single sample.
+The `RETURN` parameter can take on the values `vector`(the default) or
+`tilt`. In `vector` mode, the raw free-fall acceleration vector is
+returned. In `tilt` mode, X and Y angles of a plane perpendicular to
+the free-fall vector are calculated and displayed.
 
 #### ACCELEROMETER_DEBUG_READ
 `ACCELEROMETER_DEBUG_READ [CHIP=<config_name>] REG=<register>`:
@@ -146,15 +153,21 @@ The following commands are available when the
 (also see the [bed mesh guide](Bed_Mesh.md)).
 
 #### BED_MESH_CALIBRATE
-`BED_MESH_CALIBRATE [METHOD=manual] [HORIZONTAL_MOVE_Z=<value>]
-[<probe_parameter>=<value>] [<mesh_parameter>=<value>]`: This command probes
-the bed using generated points specified by the parameters in the config. After
-probing, a mesh is generated and z-movement is adjusted according to the mesh.
+`BED_MESH_CALIBRATE [PROFILE=<name>] [METHOD=manual] [HORIZONTAL_MOVE_Z=<value>]
+[<probe_parameter>=<value>] [<mesh_parameter>=<value>] [ADAPTIVE=1]
+[ADAPTIVE_MARGIN=<value>]`: This command probes the bed using generated points
+specified by the parameters in the config. After probing, a mesh is generated
+and z-movement is adjusted according to the mesh.
+The mesh will be saved into a profile specified by the `PROFILE` parameter,
+or `default` if unspecified.
 See the PROBE command for details on the optional probe parameters. If
 METHOD=manual is specified then the manual probing tool is activated - see the
 MANUAL_PROBE command above for details on the additional commands available
 while this tool is active. The optional `HORIZONTAL_MOVE_Z` value overrides the
-`horizontal_move_z` option specified in the config file.
+`horizontal_move_z` option specified in the config file. If ADAPTIVE=1 is
+specified then the objects defined by the Gcode file being printed will be used
+to define the probed area. The optional `ADAPTIVE_MARGIN` value overrides the
+`adaptive_margin` option specified in the config file.
 
 #### BED_MESH_OUTPUT
 `BED_MESH_OUTPUT PGP=[<0:1>]`: This command outputs the current probed
@@ -184,10 +197,12 @@ SAVE_CONFIG gcode must be run to make the changes to persistent memory
 permanent.
 
 #### BED_MESH_OFFSET
-`BED_MESH_OFFSET [X=<value>] [Y=<value>]`: Applies X and/or Y offsets
-to the mesh lookup. This is useful for printers with independent
-extruders, as an offset is necessary to produce correct Z adjustment
-after a tool change.
+`BED_MESH_OFFSET [X=<value>] [Y=<value>] [ZFADE=<value]`: Applies X, Y,
+and/or ZFADE offsets to the mesh lookup. This is useful for printers with
+independent extruders, as an offset is necessary to produce correct Z
+adjustment after a tool change.  Note that a ZFADE offset does not apply
+additional z-adjustment directly, it is used to correct the `fade`
+calculation when a `gcode offset` has been applied to the Z axis.
 
 ### [bed_screws]
 
@@ -216,6 +231,32 @@ specified then the manual probing tool is activated - see the MANUAL_PROBE
 command above for details on the additional commands available while this tool
 is active. The optional `HORIZONTAL_MOVE_Z` value overrides the
 `horizontal_move_z` option specified in the config file.
+
+### [belay]
+
+The following commands are available when a
+[belay config section](Config_Reference.md#belay) is enabled.
+
+#### QUERY_BELAY
+`QUERY_BELAY BELAY=<config_name>`: Queries the state of the belay
+specified by `BELAY`.
+
+#### BELAY_SET_MULTIPLIER
+`BELAY_SET_MULTIPLIER BELAY=<config_name> [HIGH=<multiplier_high>]
+[LOW=<multiplier_low>]`: Sets the values of multiplier_high and/or
+multiplier_low for the belay specified by `BELAY`, overriding their
+values from the corresponding
+[belay config section](Config_Reference.md#belay). Values set by this
+command will not persist across restarts.
+
+#### BELAY_SET_STEPPER
+`BELAY_SET_STEPPER BELAY=<config_name> STEPPER=<extruder_stepper_name>`: Selects
+the extruder_stepper whose multiplier will be controlled by the belay specified
+by `BELAY`. The multiplier for the previous stepper will be reset back
+to 1 before switching to the new stepper. Stepper selections made by this
+command will not persist across restarts. This command is only available if
+extruder_type is set to 'extruder_stepper' in the corresponding
+[belay config section](Config_Reference.md#belay).
 
 ### [bltouch]
 
@@ -471,12 +512,6 @@ MOTION_QUEUE (as defined in an [extruder](Config_Reference.md#extruder)
 config section). If MOTION_QUEUE is an empty string then the stepper
 will be desynchronized from all extruder movement.
 
-#### SET_EXTRUDER_STEP_DISTANCE
-This command is deprecated and will be removed in the near future.
-
-#### SYNC_STEPPER_TO_EXTRUDER
-This command is deprecated and will be removed in the near future.
-
 ### [fan_generic]
 
 The following command is available when a
@@ -501,9 +536,31 @@ status of the filament sensor. The data displayed on the terminal will
 depend on the sensor type defined in the configuration.
 
 #### SET_FILAMENT_SENSOR
-`SET_FILAMENT_SENSOR SENSOR=<sensor_name> ENABLE=[0|1]`: Sets the
-filament sensor on/off. If ENABLE is set to 0, the filament sensor
-will be disabled, if set to 1 it is enabled.
+###### For filament_switch_sensor:
+`SET_FILAMENT_SENSOR SENSOR=<sensor_name> [ENABLE=0|1] [RESET=0|1]
+[RUNOUT_DISTANCE=<mm>] [SMART=0|1]`: Sets values for the
+filament sensor.  If all parameters are omitted, the current stats will
+be reported. <br>
+ENABLE sets the filament sensor on/off. If ENABLE is set to 0, the
+filament sensor will be disabled, if set to 1 it is enabled. If the state
+of the sensor changes, a reset will be triggered. <br>
+RESET removes all pending runout_gcodes and pauses and force a reevaluation
+of the sensor state. <br>
+RUNOUT_DISTANCE sets the runout_distance. <br>
+SMART sets the smart parameter.
+
+###### For filament_motion_sensor:
+`SET_FILAMENT_SENSOR SENSOR=<sensor_name> [ENABLE=0|1] [RESET=0|1]
+[DETECTION_LENGTH=<mm>] [SMART=0|1]`: Sets values for the
+filament sensor.  If all parameters are omitted, the current stats will
+be reported. <br>
+ENABLE sets the filament sensor on/off. If ENABLE is set to 0, the
+filament sensor will be disabled, if set to 1 it is enabled. If the sensor
+was previously disabled and gets enabled, a reset will be triggered. <br>
+RESET resets the state of the sensor and sets it to filament detected. <br>
+DETECTION_LENGTH sets the detection_length, if the new detection length is
+different from the old one, a reset will be triggered. <br>
+SMART sets the smart parameter.
 
 ### [firmware_retraction]
 
@@ -750,6 +807,14 @@ above the supplied MINIMUM and/or at or below the supplied MAXIMUM.
 [TARGET=<target_temperature>]`: Sets the target temperature for a
 heater. If a target temperature is not supplied, the target is 0.
 
+#### SET_SMOOTH_TIME
+`SET_SMOOTH_TIME HEATER=<heater_name> [SMOOTH_TIME=<smooth_time>]
+[SAVE_TO_PROFILE=0|1]`: Sets the smooth_time of the specified heater.
+If SMOOTH_TIME is omitted, the smooth_time will be reset to the value
+from the config.
+If SAVE_TO_PROFILE is set to 1, the new value will be written to the
+current PID_PROFILE.
+
 ### [idle_timeout]
 
 The idle_timeout module is automatically loaded.
@@ -893,21 +958,15 @@ commands to manage the LED's color settings).
 ### [output_pin]
 
 The following command is available when an
-[output_pin config section](Config_Reference.md#output_pin) is
+[output_pin config section](Config_Reference.md#output_pin) or
+[pwm_tool config section](Config_Reference.md#pwm_tool) is
 enabled.
 
 #### SET_PIN
-`SET_PIN PIN=config_name VALUE=<value> [CYCLE_TIME=<cycle_time>]`: Set
-the pin to the given output `VALUE`. VALUE should be 0 or 1 for
-"digital" output pins. For PWM pins, set to a value between 0.0 and
-1.0, or between 0.0 and `scale` if a scale is configured in the
-output_pin config section.
-
-Some pins (currently only "soft PWM" pins) support setting an explicit
-cycle time using the CYCLE_TIME parameter (specified in seconds). Note
-that the CYCLE_TIME parameter is not stored between SET_PIN commands
-(any SET_PIN command without an explicit CYCLE_TIME parameter will use
-the `cycle_time` specified in the output_pin config section).
+`SET_PIN PIN=config_name VALUE=<value>`: Set the pin to the given
+output `VALUE`. VALUE should be 0 or 1 for "digital" output pins. For
+PWM pins, set to a value between 0.0 and 1.0, or between 0.0 and
+`scale` if a scale is configured in the output_pin config section.
 
 ### [palette2]
 
@@ -966,6 +1025,52 @@ require a value of 0.03 or higher.
 `SET_HEATER_PID HEATER=<config_name> KP=<kp> KI=<ki> KD=<kd>`: Will
 allow one to manually change PID parameters of heaters without a
 reload of the firmware.
+
+### [pid_profile]
+
+The PID_PROFILE module is automatically loaded if a heater is defined
+in the config file.
+
+#### PID_PROFILE
+`PID_PROFILE LOAD=<profile_name> HEATER=<heater_name> [DEFAULT=<profile_name>]
+[VERBOSE=<verbosity>] [RESET_TARGET=0|1] [LOAD_CLEAN=0|1]`:
+Loads the given PID_PROFILE for the specified heater. If DEFAULT is specified,
+the Profile specified in DEFAULT will be loaded when then given Profile for LOAD
+can't be found (like a getOrDefault method). If VERBOSE is set to LOW, minimal
+info will be written in console.
+If set to NONE, no console outputs will be given.
+If KEEP_TARGET is set to 1, the heater will keep it's target temperature,
+if set to 0, the target temperature will be set to 0.
+By default the target temperature of the heater will be set to 0 so the
+algorithm has time to settle in.
+If LOAD_CLEAN is set to 1, the profile would be loaded as if the printer just
+started up, if set to 0, the profile will retain previous heating information.
+By default the information will be kept to reduce overshoot, change this value
+if you encounter weird behaviour while switching profiles.
+
+`PID_PROFILE SAVE=<profile_name> HEATER=<config_name>`:
+Saves the currently loaded profile of the specified heater to the config under
+the given name.
+
+`PID_PROFILE REMOVE=<profile_name> HEATER=<config_name>`:
+Removes the given profile from the profiles List for the current session and config if SAVE_CONFIG is issued afterwards.
+
+`PID_PROFILE SET_VALUES=<profile_name> HEATER=<heater_name> TARGET=<target_temp> TOLERANCE=<tolerance>
+CONTROL=<control_type> KP=<kp> KI=<ki> KD=<kd> [RESET_TARGET=0|1] [LOAD_CLEAN=0|1]`:
+Creates a new profile with the given PID values, CONTROL must either be `pid` or
+`pid_v`, TOLERANCE and TARGET must be specified to create a valid profile,
+though the values themselves don't matter.
+If KEEP_TARGET is set to 1, the heater will keep it's target temperature,
+if set to 0, the target temperature will be set to 0.
+By default the target temperature of the heater will be set to 0 so the
+algorithm has time to settle in.
+If LOAD_CLEAN is set to 1, the profile would be loaded as if the printer just
+started up, if set to 0, the profile will retain previous heating information.
+By default the information will be kept to reduce overshoot, change this value
+if you encounter weird behaviour while switching profiles.
+
+`PID_PROFILE GET_VALUES HEATER=<heater_name>`:
+Outputs the values of the current loaded pid_profile of the given heater to the console.
 
 ### [pause_resume]
 
@@ -1044,6 +1149,21 @@ direction as well as Z.
 babystepping), and subtract if from the probe's z_offset.  This acts
 to take a frequently used babystepping value, and "make it permanent".
 Requires a `SAVE_CONFIG` to take effect.
+
+### [pwm_cycle_time]
+
+The following command is available when a
+[pwm_cycle_time config section](Config_Reference.md#pwm_cycle_time)
+is enabled.
+
+#### SET_PIN
+`SET_PIN PIN=config_name VALUE=<value> [CYCLE_TIME=<cycle_time>]`:
+This command works similarly to [output_pin](#output_pin) SET_PIN
+commands. The command here supports setting an explicit cycle time
+using the CYCLE_TIME parameter (specified in seconds). Note that the
+CYCLE_TIME parameter is not stored between SET_PIN commands (any
+SET_PIN command without an explicit CYCLE_TIME parameter will use the
+`cycle_time` specified in the pwm_cycle_time config section).
 
 ### [query_adc]
 
@@ -1348,8 +1468,24 @@ The toolhead module is automatically loaded.
 
 #### SET_VELOCITY_LIMIT
 `SET_VELOCITY_LIMIT [VELOCITY=<value>] [ACCEL=<value>]
-[ACCEL_TO_DECEL=<value>] [SQUARE_CORNER_VELOCITY=<value>]`: Modify the
-printer's velocity limits.
+[ACCEL_TO_DECEL=<value>] [SQUARE_CORNER_VELOCITY=<value>]`: This
+command can alter the velocity limits that were specified in the
+printer config file. See the
+[printer config section](Config_Reference.md#printer) for a
+description of each parameter.
+
+#### ⚠️ SET_KINEMATICS_LIMIT
+
+`SET_KINEMATICS_LIMIT [<X,Y,Z>_ACCEL=<value>] [<X,Y,Z>_VELOCITY=<value>]
+[SCALE=<0:1>]`: change the per-axis limits.
+
+This command is only available when `kinematics` is set to either
+[`limited_cartesian`](./Config_Reference.md#⚠️-cartesian-kinematics-with-limits-for-x-and-y-axes)
+or
+[`limited_corexy`](./Config_Reference.md#⚠️-corexy-kinematics-with-limits-for-x-and-y-axes).
+The velocity argument is not available on CoreXY. With no arguments, this
+command responds with the movement direction with the most acceleration or
+velocity.
 
 ### [tuning_tower]
 
@@ -1464,7 +1600,7 @@ adjustments to each Z stepper to compensate for tilt. See the PROBE command for
 details on the optional probe parameters. The optional `HORIZONTAL_MOVE_Z`
 value overrides the `horizontal_move_z` option specified in the config file.
 The follwing commands are availabe when the parameter "extra_points" is
-configured in the z_tilt_section:
+configured in the z_tilt_ng section:
 - `Z_TILT_CALIBRATE [AVGLEN=<value>]`: This command does multiple probe
   runs similar to Z_TILT_ADJUST, but with the additional points given in
   "extra_points". This leads to a more balanced bed adjustment in case the
