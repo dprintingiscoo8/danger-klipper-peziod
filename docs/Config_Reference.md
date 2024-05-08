@@ -120,7 +120,7 @@ A collection of DangerKlipper-specific system options
 #   for conflicts to autosave data. Any configurations updated will be backed
 #   up to configs/config_backups.
 #bgflush_extra_time: 0.250
-#   This allows to set extra flush time (in seconds). Under certain conditions, 
+#   This allows to set extra flush time (in seconds). Under certain conditions,
 #   a low value will result in an error if message is not get flushed, a high value
 #   (0.250) will result in homing/probing latency. The default is 0.250
 ```
@@ -1688,9 +1688,11 @@ path:
 #   be provided.
 #on_error_gcode:
 #   A list of G-Code commands to execute when an error is reported.
+#   See docs/Command_Templates.md for G-Code format. The default is to
+#   run TURN_OFF_HEATERS.
 #with_subdirs: False
-#   Enable scanning of subdirectories for the menu and for the M20 and M23 commands. The default is False.
-
+#   Enable scanning of subdirectories for the menu and for the
+#   M20 and M23 commands. The default is False.
 ```
 
 ### [sdcard_loop]
@@ -2216,12 +2218,28 @@ detach_position: 0,0,0
 #   If Z is specified the toolhead will move to the Z location before the X, Y
 #   coordinates.
 #   This parameter is required.
+#extract_position: 0,0,0
+#   Similar to the approach_position, the extract_position is the coordinates
+#   where the toolhead is moved to extract the probe from the dock.
+#   If Z is specified the toolhead will move to the Z location before the X, Y
+#   coordinates.
+#   The default value is approach_probe value.
+#insert_position: 0,0,0
+#   Similar to the extract_position, the insert_position is the coordinates
+#   where the toolhead is moved before inserting the probe into the dock.
+#   If Z is specified the toolhead will move to the Z location before the X, Y
+#   coordinates.
+#   The default value is extract_probe value.
 #z_hop: 15.0
 #   Distance (in mm) to lift the Z axis prior to attaching/detaching the probe.
 #   If the Z axis is already homed and the current Z position is less
 #   than `z_hop`, then this will lift the head to a height of `z_hop`. If
 #   the Z axis is not already homed the head is lifted by `z_hop`.
 #   The default is to not implement Z hop.
+#restore_toolhead: True
+#   While True, the position of the toolhead is restored to the position prior 
+#   to the attach/detach movements.
+#   The default value is True.
 #dock_retries:
 #   The number of times to attempt to attach/dock the probe before raising
 #   an error and aborting probing.
@@ -2314,6 +2332,40 @@ z_offset:
 #deactivate_gcode:
 #deactivate_on_each_sample:
 #   See the "probe" section for more information on the parameters above.
+```
+
+### [probe_eddy_current]
+
+Support for eddy current inductive probes. One may define this section
+(instead of a probe section) to enable this probe. See the
+[command reference](G-Codes.md#probe_eddy_current) for further information.
+
+```
+[probe_eddy_current my_eddy_probe]
+sensor_type: ldc1612
+#   The sensor chip used to perform eddy current measurements. This
+#   parameter must be provided and must be set to ldc1612.
+#z_offset:
+#   The nominal distance (in mm) between the nozzle and bed that a
+#   probing attempt should stop at. This parameter must be provided.
+#i2c_address:
+#i2c_mcu:
+#i2c_bus:
+#i2c_software_scl_pin:
+#i2c_software_sda_pin:
+#i2c_speed:
+#   The i2c settings for the sensor chip. See the "common I2C
+#   settings" section for a description of the above parameters.
+#x_offset:
+#y_offset:
+#speed:
+#lift_speed:
+#samples:
+#sample_retract_dist:
+#samples_result:
+#samples_tolerance:
+#samples_tolerance_retries:
+#   See the "probe" section for information on these parameters.
 ```
 
 ### [axis_twist_compensation]
@@ -2944,6 +2996,25 @@ sensor_type:
 #   Interval in seconds between readings. Default is 30
 ```
 
+### SHT3X sensor
+
+SHT3X family two wire interface (I2C) environmental sensor. These sensors
+have a range of -55~125 C, so are usable for e.g. chamber temperature
+monitoring. They can also function as simple fan/heater controllers.
+
+```
+sensor_type: SHT3X
+#i2c_address:
+#   Default is 68 (0x44).
+#i2c_mcu:
+#i2c_bus:
+#i2c_software_scl_pin:
+#i2c_software_sda_pin:
+#i2c_speed:
+#   See the "common I2C settings" section for a description of the
+#   above parameters.
+```
+
 ### LM75 temperature sensor
 
 LM75/LM75A two wire (I2C) connected temperature sensors. These sensors
@@ -3264,6 +3335,30 @@ information.
 #   is lower than the target temperature, the fan speed increases;
 #   otherwise, the fan speed decreases.
 #   The default is False.
+```
+
+```
+control: curve
+#points:
+#  50.0, 0.0
+#  55.0, 0.5
+#   A user might defne a list of points which consist of a temperature with
+#   it's associated fan speed (temp, fan_speed).
+#   The target_temp value defines the temperature at which the fan will run
+#   at full speed.
+#   The algorithm will use linear interpolation to get the fan speeds
+#   between two points (if one has defined 0.0 for 50° and 1.0 for 60° the
+#   fan would run with 0.5 at 55°)
+#cooling_hysteresis: 0.0
+#   define the temperature hysteresis for lowering the fan speed
+#   (temperature differences to the last measured value that are lower than
+#   the hysteresis will not cause lowering of the fan speed)
+#heating_hysteresis: 0.0
+#   same as cooling_hysteresis but for increasing the fan speed, it is
+#   recommended to be left at 0 for safety reasons
+#smooth_readings: 10
+#   the amount of readings a median should be taken of to determine the fan
+#   speed at each update interval, the default is 10
 ```
 
 ### [fan_generic]
@@ -5197,25 +5292,25 @@ TradRack repo for additional information:
 ```
 [trad_rack]
 selector_max_velocity:
-#   Maximum velocity (in mm/s) of the selector. 
+#   Maximum velocity (in mm/s) of the selector.
 #   This parameter must be specified.
 selector_max_accel:
-#   Maximum acceleration (in mm/s^2) of the selector. 
+#   Maximum acceleration (in mm/s^2) of the selector.
 #   This parameter must be specified.
 #filament_max_velocity:
-#   Maximum velocity (in mm/s) for filament movement. 
+#   Maximum velocity (in mm/s) for filament movement.
 #   Defaults to buffer_pull_speed.
 #filament_max_accel: 1500.0
 #   Maximum acceleration (in mm/s^2) for filament movement.
 #   The default is 1500.0.
 toolhead_fil_sensor_pin:
 #   The pin on which the toolhead filament sensor is connected.
-#   If a pin is not specified, no toolhead filament sensor will 
+#   If a pin is not specified, no toolhead filament sensor will
 #   be used.
 lane_count:
 #   The number of filament lanes. This parameter must be specified.
 lane_spacing:
-#   Spacing (in mm) between filament lanes. 
+#   Spacing (in mm) between filament lanes.
 #   This parameter must be specified.
 #lane_offset_<lane index>:
 #   Options with a "lane_offset_" prefix may be specified for any of
@@ -5299,7 +5394,7 @@ toolhead_unload_length:
 #   segment into the lane module.
 #spool_pull_speed: 100.0
 #   Speed (in mm/s) to move filament through the bowden tube when
-#   loading from a spool. See Tuning.md for details. 
+#   loading from a spool. See Tuning.md for details.
 #   The default is 100.0.
 #buffer_pull_speed:
 #   Speed (in mm/s) to move filament through the bowden tube when
@@ -5321,7 +5416,7 @@ toolhead_unload_length:
 #load_with_toolhead_sensor: True
 #   Whether to use the toolhead sensor when loading the toolhead.
 #   See Tuning.md for details. Defaults to True but is ignored if
-#   toolhead_fil_sensor_pin is not specified. 
+#   toolhead_fil_sensor_pin is not specified.
 #unload_with_toolhead_sensor: True
 #   Whether to use the toolhead sensor when unloading the toolhead.
 #   See Tuning.md for details. Defaults to True but is ignored if

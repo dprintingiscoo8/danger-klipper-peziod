@@ -1053,7 +1053,7 @@ in the config file.
 
 #### PID_PROFILE
 `PID_PROFILE LOAD=<profile_name> HEATER=<heater_name> [DEFAULT=<profile_name>]
-[VERBOSE=<verbosity>] [RESET_TARGET=0|1] [LOAD_CLEAN=0|1]`:
+[VERBOSE=<verbosity>] [KEEP_TARGET=0|1] [LOAD_CLEAN=0|1]`:
 Loads the given PID_PROFILE for the specified heater. If DEFAULT is specified,
 the Profile specified in DEFAULT will be loaded when then given Profile for LOAD
 can't be found (like a getOrDefault method). If VERBOSE is set to LOW, minimal
@@ -1169,6 +1169,28 @@ direction as well as Z.
 babystepping), and subtract if from the probe's z_offset.  This acts
 to take a frequently used babystepping value, and "make it permanent".
 Requires a `SAVE_CONFIG` to take effect.
+
+### [probe_eddy_current]
+
+The following commands are available when a
+[probe_eddy_current config section](Config_Reference.md#probe_eddy_current)
+is enabled.
+
+#### PROBE_EDDY_CURRENT_CALIBRATE
+`PROBE_EDDY_CURRENT_CALIBRATE CHIP=<config_name>`: This starts a tool
+that calibrates the sensor resonance frequencies to corresponding Z
+heights. The tool will take a couple of minutes to complete. After
+completion, use the SAVE_CONFIG command to store the results in the
+printer.cfg file.
+
+#### LDC_CALIBRATE_DRIVE_CURRENT
+`LDC_CALIBRATE_DRIVE_CURRENT CHIP=<config_name>` This tool will
+calibrate the ldc1612 DRIVE_CURRENT0 register. Prior to using this
+tool, move the sensor so that it is near the center of the bed and
+about 20mm above the bed surface. Run this command to determine an
+appropriate DRIVE_CURRENT for the sensor. After running this command
+use the SAVE_CONFIG command to store that new setting in the
+printer.cfg config file.
 
 ### [pwm_cycle_time]
 
